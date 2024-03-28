@@ -10,15 +10,15 @@ deno run -A src/main.ts setting.json
 ### `setting.json`
 ```json
 {
-  from: "../repositoryA/src",
-  to: "../repositoryB/apps/siteA/src",
-  targets: [
+  "from": "../repositoryA/src",
+  "to": "../repositoryB/apps/siteA/src",
+  "targets": [
     "entries/shop.ts",
     "components/",
     "types/",
     "assets/custom.css"
   ],
-  includes: [ "ts", "css", "js", "vue" ]
+  "includes": [ "ts", "css", "js", "vue" ]
 }
 ```
 
