@@ -10,7 +10,7 @@ import { readJson } from './readJson.ts'
 import { type SettingJson } from './settingJson.d.ts'
 
 const copyOptions: CopyOptions = {
-  overwrite: true,
+  overwrite: false,
   preserveTimestamps: true
 }
 
@@ -36,8 +36,13 @@ const resolveTargetPath = (
 }
 
 // 解決済みの copy 対象のパス
-const resolvedTargets = settings.targets.map((target) => {
-  return resolveTargetPath(settings.from, target)
+const resolvedTargets: Array<{
+  srcFullPath: string
+}> = settings.targets.map((target) => {
+  return {
+    src: target,
+    srcFullPath: resolveTargetPath(settings.from, target)
+  }
 })
 
 // 設定にある拡張子をマッチさせるパターンを作る
@@ -52,10 +57,10 @@ const walkOptions: WalkOptions = {
   match: [matchExtPattern]
 }
 
-const copyFilesUnderDir = async (target: string, copyTo: string) => {
+const copyFilesUnderDir = async (targetDir: string, copyTo: string) => {
   const resolvedFromPath = resolve(Deno.cwd(), settings.from)
 
-  for await (const entry of walk(target, walkOptions)) {
+  for await (const entry of walk(targetDir, walkOptions)) {
     const relativePath = relative(resolvedFromPath, entry.path)
     const dirPath = dirname(join(copyTo, relativePath))
     try {
@@ -69,16 +74,32 @@ const copyFilesUnderDir = async (target: string, copyTo: string) => {
   }
 }
 
+const copyFile = async (target:string, copyTo: string) => {
+  const resolvedFromPath = resolve(Deno.cwd(), settings.from)
+  const relativePath = relative(resolvedFromPath, target)
+  const dirPath = dirname(join(copyTo, relativePath))
+  try {
+    await Deno.stat(dirPath)
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      Deno.mkdir(dirPath, { recursive: true });
+    }
+  }
+  try {
+    await copy(target, join(copyTo, relativePath), copyOptions)
+  } catch (_error) {}
+}
+
 // コピー対象の列挙配列をもとに実行
 resolvedTargets.map(async (target) => {
   // 対象がファイルかディレクトリか判定する
-  const stat = await Deno.stat(target)
+  const stat = await Deno.stat(target.srcFullPath)
   if (stat.isDirectory === true) {
     // ディレクトリ配下をコピー
-    await copyFilesUnderDir(target, destDir)
+    await copyFilesUnderDir(target.srcFullPath, destDir)
   } else if (stat.isFile === true) {
     // ファイルコピー
-    await copy(target, destDir)
+    copyFile(target.srcFullPath, destDir)
   } else {
     throw new Error('dame dayo')
   }
